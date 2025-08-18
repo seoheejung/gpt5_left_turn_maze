@@ -42,7 +42,8 @@
 ### 레포 구조
 ```
 maze-project/
-├── README.md                  # 요약본 (summary)
+├── README.md  # 요약본 (summary)
+├── index.html # 리다리렉트용
 ├── docs/
 │   └── maze_conversation_log.md   # GPT5 대화 기록 전체
 └── src/                        # (옵션) 실제 코드 넣는 공간
@@ -54,6 +55,7 @@ maze-project/
 **GitHub Pages 이용**
 - GitHub에 새 리포지토리를 하나 만들고 left_turn_maze.html 파일을 업로드
 - 리포지토리의 Settings → Pages 메뉴에서 Branch: main + / (root) 선택 후 저장
-- 몇 분 뒤에 https://seoheejung.github.io/gpt5_left_turn_maze/left_turn_maze.html 같은 URL로 접속 가능
+- 몇 분 뒤에 https://seoheejung.github.io/gpt5_left_turn_maze/src/left_turn_maze.html 같은 URL로 접속 가능
+- https://seoheejung.github.io/gpt5_left_turn_maze
 
 👉 이 방식이면 바로 웹 브라우저에서 게임을 실행 가능
