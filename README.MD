@@ -54,6 +54,6 @@ maze-project/
 **GitHub Pages 이용**
 - GitHub에 새 리포지토리를 하나 만들고 left_turn_maze.html 파일을 업로드
 - 리포지토리의 Settings → Pages 메뉴에서 Branch: main + / (root) 선택 후 저장
-- 몇 분 뒤에 https://사용자명.github.io/리포지토리명/left_turn_maze.html 같은 URL로 접속 가능
+- 몇 분 뒤에 https://seoheejung.github.io/gpt5_left_turn_maze/left_turn_maze.html 같은 URL로 접속 가능
 
 👉 이 방식이면 바로 웹 브라우저에서 게임을 실행 가능
