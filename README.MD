@@ -36,7 +36,7 @@
 - 바이브 코딩의 철학(놀이와 창작, 점진적 진화)을 보여주는 프로젝트
 
 ### 📎 전체 대화 기록
-👉 [GPT5 미로 프로젝트 대화 로그](./docs/maze_conversation.md)
+👉 [GPT5 미로 프로젝트 대화 로그](./docs/maze_conversation.MD)
 
 ---
 ### 레포 구조
