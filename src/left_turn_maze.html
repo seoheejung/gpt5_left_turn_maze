@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>좌회전 미로 · 동→서 (오른쪽 금지 · 힌트/현재위치 · 뒤로가기)</title>
+<title>좌회전만 가능한 미로 게임</title>
 <style>
   :root{
     --bg:#0e1117; --panel:#111827; --text:#e5e7eb; --muted:#94a3b8;
@@ -13,42 +12,61 @@
   *{box-sizing:border-box}
   body { background: var(--bg); color: var(--text); margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", Roboto, "Segoe UI", Helvetica, Arial, sans-serif; }
   header { padding:16px 18px 0 }
-  h1{margin:0;font-size:18px}
-  main { display:grid; grid-template-columns: 1fr 330px; gap:14px; padding: 12px 18px 18px; }
+  h1{margin:0;font-size:18px;font-weight:600;line-height:1.2;color:var(--text);text-align:center}
+  main { display:grid; grid-template-columns: 1fr 340px; gap:14px; padding: 12px 18px 18px; align-items:start }
   .card { background: var(--panel); border: 1px solid #1f2a44; border-radius: 12px; }
   #stageWrap { display:grid; place-items:center; padding:10px }
-  canvas { background: var(--floor); image-rendering: pixelated; border-radius:10px; box-shadow: 0 0 0 1px #222, 0 10px 30px rgba(0,0,0,.35); width:min(92vw, 900px); height:auto; }
-  aside { padding:14px; font-size:14px }
-  .row { display:flex; gap:8px; align-items:center; margin:8px 0; flex-wrap:wrap }
-  label { color: var(--muted); font-size:12px }
+  /* Canvas는 CSS로 폭을 제어하고, JS에서 내부 해상도를 DPR에 맞춰 스케일합니다 */
+  canvas { width:100%; max-width: 1100px; height:auto; background: var(--floor); image-rendering: pixelated; border-radius:10px; box-shadow: 0 0 0 1px #222, 0 10px 30px rgba(0,0,0,.35); }
+  aside { padding:14px; font-size:14px; position: sticky; top: 10px; }
+  .row { display:flex; gap:8px; align-items:center; margin:8px 0; flex-wrap:wrap; justify-content: center; }
+  label { color: var(--muted); font-size:12px; min-width: 110px }
   input[type="range"]{ width: 100% }
-  input, button { background:#0d172a; border:1px solid #1f2a44; color:#cbd5e1; border-radius:8px; padding:8px; cursor:pointer }
+  input, button { background:#0d172a; border:1px solid #1f2a44; color:#cbd5e1; border-radius:8px; padding:10px 12px; cursor:pointer }
   .kbd{ background:#0f172a;border:1px solid #1f2a44;color:#cbd5e1;border-radius:6px;padding:2px 6px;font-size:12px;min-width:22px;display:inline-flex;justify-content:center }
   #toast { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); background: var(--toast); color: #fff; padding: 10px 14px; border-radius: 10px; display: none; border:1px solid #4b5563; font-weight:600; }
+
+  /* 반응형: 1024px 이하에서는 우측 패널 폭을 줄이고, 840px 이하에서는 1열로 쌓기 */
+  @media (max-width: 1024px){
+    main { grid-template-columns: 1fr 300px; }
+  }
+  @media (max-width: 840px){
+    main { grid-template-columns: 1fr; }
+    aside { position: static; }
+    .row{ width: 100%; }
+    .row > button{ flex:1; }
+  }
+  /* 아주 작은 화면에서 제목 폰트 크기 보정 */
+  @media (max-width: 420px){
+    h1{ font-size:16px }
+  }
 </style>
 </head>
 <body>
   <header>
-    <h1>좌회전 미로 · 동→서 (오른쪽 금지 · 힌트 버튼/현재위치 · 뒤로가기)</h1>
+    <h1>좌회전만 가능한 미로 게임</h1>
   </header>
   <main>
     <section class="card" id="stageWrap">
-      <canvas id="game" width="860" height="860" aria-label="maze canvas"></canvas>
+      <canvas id="game" aria-label="maze canvas"></canvas>
     </section>
     <aside class="card">
       <div style="padding:8px 10px">
         <div class="row">
-          <div class="kbd">W/↑</div>위 <div class="kbd">A/←</div>왼쪽 <div class="kbd">S/↓</div>아래 · <b>오른쪽 금지</b> · 짧게=한 칸, 꾹=벽까지
+          <div class="kbd"> · W/↑: 위 </div>
+          <div class="kbd"> · A/← : 왼쪽 </div>
+          <div class="kbd"> · S/↓: 아래</div>
+          <div class="kbd">· 오른쪽 금지 </div>
         </div>
         <div class="row"><b>스테이지</b>: <span id="stageNo">1</span></div>
-        <div class="row" style="gap:6px">
-          <button id="btnHint">힌트 보기(현재 위치)</button>
-          <button id="btnBack">뒤로가기</button>
-          <button id="btnNew">새 맵</button>
+        <div class="row" style="gap:6px; width:100%">
+          <button id="btnHint" style="flex:1; font-size: 0.8em;">힌트 보기 <br>(현재 위치)</button>
+          <button id="btnBack" style="flex:1">뒤로가기</button>
+          <button id="btnNew" style="flex:1">새 맵</button>
         </div>
-        <div class="row">
+        <div class="row" style="width:100%">
           <label>크기(홀수)</label>
-          <input type="number" id="size" min="31" max="99" step="2" value="41">
+          <input type="number" id="size" min="31" max="99" step="2" value="41" style="flex:1">
         </div>
         <div class="row">
           <label>지그재그 강도(메인 경로)</label>
@@ -66,324 +84,360 @@
           <label>문(door) 개수/방</label>
           <input type="range" id="doors" min="1" max="4" value="3">
         </div>
-        <div class="row">
+        <div class="row" style="width:100%">
           <label>시드</label>
-          <input type="number" id="seed" placeholder="랜덤">
+          <input type="number" id="seed" placeholder="랜덤" style="flex:1">
         </div>
-        <small>정답 경로는 <b>왼손 법칙</b>(좌→직→우→후진)으로 계산하며 <b>동쪽(EAST)을 금지</b>합니다. 힌트는 현재 위치 기준으로 표시돼요.</small>
+        <small>정답 경로는 <b>왼손 법칙</b>(좌→직→우→후진)으로 계산하며 <b>동쪽(EAST)을 금지</b>합니다.  <br>힌트는 현재 위치 기준으로 표시돼요.</small>
       </div>
     </aside>
   </main>
   <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
-(() => {
-  const canvas = document.getElementById("game");
-  const ctx = canvas.getContext("2d");
-  const ui = {
-    size: document.getElementById("size"),
-    zigzag: document.getElementById("zigzag"),
-    loops: document.getElementById("loops"),
-    rooms: document.getElementById("rooms"),
-    doors: document.getElementById("doors"),
-    seed: document.getElementById("seed"),
-    stageNo: document.getElementById("stageNo"),
-    btnHint: document.getElementById("btnHint"),
-    btnBack: document.getElementById("btnBack"),
-    btnNew: document.getElementById("btnNew"),
-  };
-  const toast = document.getElementById("toast");
+  (() => {
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const ui = {
+      size: document.getElementById("size"),
+      zigzag: document.getElementById("zigzag"),
+      loops: document.getElementById("loops"),
+      rooms: document.getElementById("rooms"),
+      doors: document.getElementById("doors"),
+      seed: document.getElementById("seed"),
+      stageNo: document.getElementById("stageNo"),
+      btnHint: document.getElementById("btnHint"),
+      btnBack: document.getElementById("btnBack"),
+      btnNew: document.getElementById("btnNew"),
+    };
+    const toast = document.getElementById("toast");
 
-  // === Config
-  let stage = 1;
-  const CELL = 18;
-  const WALL = 1, PATH = 0;
+    // === Config
+    let stage = 1;
+    let CELL = 18; // 화면 폭에 맞춰 동적으로 재계산
+    const WALL = 1, PATH = 0;
 
-  function RNG(seed){ let s=(seed>>>0)||((Math.random()*2**32)>>>0); return {next(){ s=(s*1664525+1013904223)>>>0; return s; }, float(){ return this.next()/2**32; }, int(a,b){ return a+Math.floor(this.float()*(b-a+1)); }, pick(a){ return a[Math.floor(this.float()*a.length)]; }}; }
+    function RNG(seed){ let s=(seed>>>0)||((Math.random()*2**32)>>>0); return {next(){ s=(s*1664525+1013904223)>>>0; return s; }, float(){ return this.next()/2**32; }, int(a,b){ return a+Math.floor(this.float()*(b-a+1)); }, pick(a){ return a[Math.floor(this.float()*a.length)]; }}; }
 
-  // Carve main path (no EAST) - richness only
-  function carveMainPathNoEast(g, sx, sy, tx, ty, r, zigzagWeight){
-    const H=g.length, W=g[0].length;
-    const visited=new Set(), key=(x,y)=>y*W+x;
-    let x=sx, y=sy;
-    g[y][x]=PATH; visited.add(key(x,y));
-    let needW = Math.floor((sx - tx)/2);
-    const st=[[x,y,needW]]; let guard=0;
-    while(st.length && guard++<W*H*4){
-      [x,y,needW]=st[st.length-1];
-      if(x===tx && y===ty) return true;
-      const opt=[];
-      if(needW>0 && x-2>=1 && !visited.has(key(x-2,y))) opt.push([-2,0,'W']);
-      if(y-2>=1 && !visited.has(key(x,y-2))) opt.push([0,-2,'N']);
-      if(y+2<=H-2 && !visited.has(key(x,y+2))) opt.push([0, 2,'S']);
-      if(opt.length===0){ st.pop(); continue; }
-      let choice;
-      const preferVertical = r.float() < (zigzagWeight/100);
-      if(needW>0 && !preferVertical) choice = [-2,0,'W']; else { const verts = opt.filter(o=>o[0]===0); choice = verts.length? r.pick(verts) : [-2,0,'W']; }
-      const nx=x+choice[0], ny=y+choice[1];
-      g[y + choice[1]/2][x + choice[0]/2] = PATH; g[ny][nx] = PATH; visited.add(key(nx,ny));
-      if(choice[2]==='W') needW--; st.push([nx,ny,needW]);
-    }
-    return false;
-  }
-
-  function fillWithDFS(g, r){
-    const H=g.length, W=g[0].length;
-    const inb=(x,y)=> x>0&&y>0&&x<W-1&&y<H-1;
-    const visited=new Set(), key=(x,y)=>y*W+x;
-    for(let y=1;y<H-1;y+=2) for(let x=1;x<W-1;x+=2){
-      if(g[y][x]===PATH) visited.add(key(x,y));
-    }
-    const DIRS=[[2,0],[-2,0],[0,2],[0,-2]];
-    function walk(sx,sy){
-      const st=[[sx,sy]]; visited.add(key(sx,sy));
-      while(st.length){
-        const [x,y]=st[st.length-1];
-        const order=DIRS.slice().sort(()=>r.float()-0.5);
-        let carved=false;
-        for(const [dx,dy] of order){
-          const nx=x+dx, ny=y+dy;
-          if(!inb(nx,ny)) continue;
-          if(g[ny][nx]!==WALL) continue;
-          if(visited.has(key(nx,ny))) continue;
-          g[y+dy/2][x+dx/2]=PATH; g[ny][nx]=PATH;
-          visited.add(key(nx,ny)); st.push([nx,ny]); carved=true; break;
-        }
-        if(!carved) st.pop();
+    // 메인 경로(동쪽 금지)
+    function carveMainPathNoEast(g, sx, sy, tx, ty, r, zigzagWeight){
+      const H=g.length, W=g[0].length;
+      const visited=new Set(), key=(x,y)=>y*W+x;
+      let x=sx, y=sy;
+      g[y][x]=PATH; visited.add(key(x,y));
+      let needW = Math.floor((sx - tx)/2);
+      const st=[[x,y,needW]]; let guard=0;
+      while(st.length && guard++<W*H*4){
+        [x,y,needW]=st[st.length-1];
+        if(x===tx && y===ty) return true;
+        const opt=[];
+        if(needW>0 && x-2>=1 && !visited.has(key(x-2,y))) opt.push([-2,0,'W']);
+        if(y-2>=1 && !visited.has(key(x,y-2))) opt.push([0,-2,'N']);
+        if(y+2<=H-2 && !visited.has(key(x,y+2))) opt.push([0, 2,'S']);
+        if(opt.length===0){ st.pop(); continue; }
+        let choice;
+        const preferVertical = r.float() < (zigzagWeight/100);
+        if(needW>0 && !preferVertical) choice = [-2,0,'W']; else { const verts = opt.filter(o=>o[0]===0); choice = verts.length? r.pick(verts) : [-2,0,'W']; }
+        const nx=x+choice[0], ny=y+choice[1];
+        g[y + choice[1]/2][x + choice[0]/2] = PATH; g[ny][nx] = PATH; visited.add(key(nx,ny));
+        if(choice[2]==='W') needW--; st.push([nx,ny,needW]);
       }
+      return false;
     }
-    for(let y=1;y<H-1;y+=2) for(let x=1;x<W-1;x+=2){
-      if(g[y][x]===WALL) walk(x,y);
-    }
-  }
 
-  function punchLoops(g, r, densityPercent){
-    const H=g.length, W=g[0].length;
-    const candidates=[];
-    for(let y=1;y<H-1;y+=2){
-      for(let x=1;x<W-1;x+=2){
-        if(x+2<=W-2 && g[y][x+1]===1 && g[y][x]===0 && g[y][x+2]===0) candidates.push([x+1, y]);
-        if(y+2<=H-2 && g[y+1][x]===1 && g[y][x]===0 && g[y+2][x]===0) candidates.push([x, y+1]);
+    function fillWithDFS(g, r){
+      const H=g.length, W=g[0].length;
+      const inb=(x,y)=> x>0&&y>0&&x<W-1&&y<H-1;
+      const visited=new Set(), key=(x,y)=>y*W+x;
+      for(let y=1;y<H-1;y+=2) for(let x=1;x<W-1;x+=2){
+        if(g[y][x]===PATH) visited.add(key(x,y));
       }
-    }
-    const breaks = Math.floor(candidates.length * (densityPercent/100));
-    for(let i=0;i<breaks;i++){
-      if(!candidates.length) break;
-      const idx = Math.floor(r.float()*candidates.length);
-      const [wx,wy] = candidates.splice(idx,1)[0];
-      g[wy][wx]=0;
-    }
-  }
-
-  // Rooms non-overlap with doors
-  function carveRoomsNonOverlap(g, r, roomCount, doorsPerRoom){
-    const H=g.length, W=g[0].length;
-    const rooms=[];
-    function rectsOverlap(a,b){ return !(a.x2+1 < b.x1-1 || b.x2+1 < a.x1-1 || a.y2+1 < b.y1-1 || b.y2+1 < a.y1-1); }
-    function inb(x,y){ return x>1 && y>1 && x<W-2 && y<H-2; }
-    function carveRect(x1,y1,x2,y2){ for(let y=y1;y<=y2;y++) for(let x=x1;x<=x2;x++) g[y][x]=PATH; }
-
-    let attempts=0;
-    while(rooms.length<roomCount && attempts++<roomCount*20){
-      const maxW = Math.max(3, Math.floor(W/8)) | 1;
-      const maxH = Math.max(3, Math.floor(H/8)) | 1;
-      const rw = (r.int(3, maxW)) | 1;
-      const rh = (r.int(3, maxH)) | 1;
-      const rx = (r.int(3, W-4-rw)) | 1;
-      const ry = (r.int(3, H-4-rh)) | 1;
-      const cand = {x1:rx, y1:ry, x2:rx+rw-1, y2:ry+rh-1};
-      if(!inb(cand.x1,cand.y1) || !inb(cand.x2,cand.y2)) continue;
-      let ok=true; for(const rm of rooms){ if(rectsOverlap(cand, rm)){ ok=false; break; } }
-      if(!ok) continue;
-      carveRect(cand.x1,cand.y1,cand.x2,cand.y2);
-      rooms.push(cand);
-      const sides=[
-        {x:()=> r.int(cand.x1+1,cand.x2-1)|1, y:()=> cand.y1-1, dx:0, dy:-1},
-        {x:()=> r.int(cand.x1+1,cand.x2-1)|1, y:()=> cand.y2+1, dx:0, dy:1},
-        {x:()=> cand.x1-1, y:()=> r.int(cand.y1+1,cand.y2-1)|1, dx:-1, dy:0},
-        {x:()=> cand.x2+1, y:()=> r.int(cand.y1+1,cand.y2-1)|1, dx:1, dy:0},
-      ];
-      const used = new Set(); const dCount=Math.min(doorsPerRoom, sides.length);
-      for(let d=0; d<dCount; d++){
-        let side=null;
-        for(let t=0;t<10;t++){ const candSide=sides[r.int(0,sides.length-1)]; const key=JSON.stringify([candSide.dx,candSide.dy]); if(!used.has(key)){ used.add(key); side=candSide; break; } }
-        if(!side) break;
-        let px=side.x(), py=side.y(); if(!inb(px,py)) continue;
-        while(inb(px,py) && g[py][px]===WALL){ g[py][px]=PATH; px+=side.dx; py+=side.dy; }
-      }
-    }
-  }
-
-  // Strict left-hand (no EAST). Returns full path or null. Cycle detection on (x,y,dir).
-  function leftHandPathNoEastStrict(g, sx, sy, tx, ty, startDir){
-    const H=g.length, W=g[0].length;
-    const DX=[0,1,0,-1], DY=[-1,0,1,0]; // N,E,S,W
-    let x=sx, y=sy, dir=startDir; // 0N 1E 2S 3W
-    const max=W*H*40, path=[[x,y]];
-    const seen=new Set(); const key=(x,y,d)=>`${x},${y},${d}`;
-    for(let step=0; step<max; step++){
-      if(x===tx && y===ty) return path;
-      const k=key(x,y,dir); if(seen.has(k)) return null; seen.add(k);
-      const order=[(dir+3)&3, dir, (dir+1)&3, (dir+2)&3]; // L F R B
-      let moved=false;
-      for(const nd of order){
-        if(nd===1) continue; // forbid EAST
-        const nx=x+DX[nd], ny=y+DY[nd];
-        if(nx<0||ny<0||nx>=W||ny>=H) continue;
-        if(g[ny][nx]!==PATH) continue;
-        x=nx; y=ny; dir=nd; path.push([x,y]); moved=true; break;
-      }
-      if(!moved) return null;
-    }
-    return null;
-  }
-
-  function buildMazeEastToWest(n, zigzag, loopDen, rooms, doors, seed){
-    const r=RNG(seed);
-    while(true){
-      const g=Array.from({length:n},()=>Array(n).fill(WALL));
-      const sx0=n-2, sy0=n-2, tx0=1, ty0=1;
-      let tries=0;
-      while(tries++<60){
-        for(let y=0;y<n;y++) for(let x=0;x<n;x++) g[y][x]=WALL;
-        if(carveMainPathNoEast(g, sx0, sy0, tx0, ty0, r, zigzag)) break;
-      }
-      fillWithDFS(g, r);
-      carveRoomsNonOverlap(g, r, rooms, doors);
-      punchLoops(g, r, loopDen);
-
-      // start at EAST edge, goal at WEST edge
-      const east=[], west=[];
-      for(let y=1;y<n-1;y++){ if(g[y][n-2]===PATH) east.push([n-2,y]); if(g[y][1]===PATH) west.push([1,y]); }
-      if(!east.length || !west.length) continue;
-      for(let t=0;t<150;t++){
-        const A=east[Math.floor(Math.random()*east.length)];
-        const B=west[Math.floor(Math.random()*west.length)];
-        // try multiple starting headings (not EAST)
-        const dirs=[3,0,2]; // W,N,S
-        for(const d of dirs){
-          const p = leftHandPathNoEastStrict(g, A[0],A[1], B[0],B[1], d);
-          if(p) return {grid:g, start:{x:A[0],y:A[1]}, goal:{x:B[0],y:B[1]}, solution:p};
+      const DIRS=[[2,0],[-2,0],[0,2],[0,-2]];
+      function walk(sx,sy){
+        const st=[[sx,sy]]; visited.add(key(sx,sy));
+        while(st.length){
+          const [x,y]=st[st.length-1];
+          const order=DIRS.slice().sort(()=>r.float()-0.5);
+          let carved=false;
+          for(const [dx,dy] of order){
+            const nx=x+dx, ny=y+dy;
+            if(!inb(nx,ny)) continue;
+            if(g[ny][nx]!==WALL) continue;
+            if(visited.has(key(nx,ny))) continue;
+            g[y+dy/2][x+dx/2]=PATH; g[ny][nx]=PATH;
+            visited.add(key(nx,ny)); st.push([nx,ny]); carved=true; break;
+          }
+          if(!carved) st.pop();
         }
       }
-      // regenerate if none works
-    }
-  }
-
-  // === Game state
-  let maze, player, goal, solutionPath, showHint=false, hintTimer=null;
-  let moving=false, timer=null;
-  const backStack=[]; // 이동 기록
-
-  function generate(){
-    const base = parseInt(ui.size.value,10)||41;
-    const n = Math.max(31, base + (stage-1)*2);
-    const zigzag = parseInt(ui.zigzag.value,10)||70;
-    const loopDen = parseInt(ui.loops.value,10)||12;
-    const rooms = parseInt(ui.rooms.value,10)||8;
-    const doors = parseInt(ui.doors.value,10)||3;
-    const seedVal = ui.seed.value==="" ? undefined : Number(ui.seed.value);
-
-    const res = buildMazeEastToWest(n, zigzag, loopDen, rooms, doors, seedVal);
-    maze = res.grid; player = {...res.start}; goal = res.goal; solutionPath = res.solution;
-    canvas.width = n*CELL; canvas.height = n*CELL;
-    ui.stageNo.textContent = String(stage);
-    showHint=false; clearTimeout(hintTimer);
-    backStack.length = 0; // reset history
-    draw();
-  }
-
-  function V(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-
-  function draw(){
-    const H=maze.length, W=maze[0].length;
-    ctx.fillStyle = V("--floor");
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle = V("--wall");
-    for(let y=0;y<H;y++) for(let x=0;x<W;x++){
-      if(maze[y][x]===WALL) ctx.fillRect(x*CELL, y*CELL, CELL, CELL);
-    }
-    if(showHint && solutionPath){
-      ctx.fillStyle = V("--hint");
-      for(const [x,y] of solutionPath){
-        ctx.fillRect(x*CELL+CELL*0.3, y*CELL+CELL*0.3, CELL*0.4, CELL*0.4);
+      for(let y=1;y<H-1;y+=2) for(let x=1;x<W-1;x+=2){
+        if(g[y][x]===WALL) walk(x,y);
       }
     }
-    // goal
-    ctx.font = `${CELL*0.85}px Arial`; ctx.textAlign="center"; ctx.textBaseline="middle";
-    ctx.fillText("🥅", goal.x*CELL+CELL/2, goal.y*CELL+CELL/2);
-    // player
-    ctx.fillText("🚗", player.x*CELL+CELL/2, player.y*CELL+CELL/2);
-  }
 
-  // Movement helpers
-  function tryStep(dx,dy){
-    if(dx===1) return false; // block east
-    const nx=player.x+dx, ny=player.y+dy;
-    if(maze[ny]?.[nx]===0){
-      // 기록: 현재 위치 push
-      backStack.push({x:player.x, y:player.y});
-      player.x=nx; player.y=ny; draw();
-      if(player.x===goal.x && player.y===goal.y){
-        toast.textContent="성공! 다음 맵으로 이동합니다"; toast.style.display="block";
-        setTimeout(()=>{ toast.style.display="none"; stage++; generate(); }, 800);
+    function punchLoops(g, r, densityPercent){
+      const H=g.length, W=g[0].length;
+      const candidates=[];
+      for(let y=1;y<H-1;y+=2){
+        for(let x=1;x<W-1;x+=2){
+          if(x+2<=W-2 && g[y][x+1]===1 && g[y][x]===0 && g[y][x+2]===0) candidates.push([x+1, y]);
+          if(y+2<=H-2 && g[y+1][x]===1 && g[y][x]===0 && g[y+2][x]===0) candidates.push([x, y+1]);
+        }
       }
-      return true;
+      const breaks = Math.floor(candidates.length * (densityPercent/100));
+      for(let i=0;i<breaks;i++){
+        if(!candidates.length) break;
+        const idx = Math.floor(r.float()*candidates.length);
+        const [wx,wy] = candidates.splice(idx,1)[0];
+        g[wy][wx]=0;
+      }
     }
-    return false;
-  }
-  function startMove(dx,dy){
-    if(moving) return;
-    moving=true;
-    if(!tryStep(dx,dy)){ stopMove(); return; }
-    timer=setInterval(()=>{ if(!tryStep(dx,dy)) stopMove(); }, 110);
-  }
-  function stopMove(){ moving=false; if(timer){ clearInterval(timer); timer=null; } }
 
-  // Back one step
-  function stepBack(){
-    if(backStack.length===0){ return; }
-    stopMove();
-    const prev = backStack.pop();
-    player.x = prev.x; player.y = prev.y;
-    draw();
-  }
+    function carveRoomsNonOverlap(g, r, roomCount, doorsPerRoom){
+      const H=g.length, W=g[0].length;
+      const rooms=[];
+      function rectsOverlap(a,b){ return !(a.x2+1 < b.x1-1 || b.x2+1 < a.x1-1 || a.y2+1 < b.y1-1 || b.y2+1 < a.y1-1); }
+      function inb(x,y){ return x>1 && y>1 && x<W-2 && y<H-2; }
+      function carveRect(x1,y1,x2,y2){ for(let y=y1;y<=y2;y++) for(let x=x1;x<=x2;x++) g[y][x]=PATH; }
 
-  window.addEventListener("keydown",(e)=>{
-    if(moving) return;
-    if(e.key==="w"||e.key==="ArrowUp") startMove(0,-1);
-    else if(e.key==="a"||e.key==="ArrowLeft") startMove(-1,0);
-    else if(e.key==="s"||e.key==="ArrowDown") startMove(0,1);
-    else if(e.key==="d"||e.key==="ArrowRight") { /* disabled */ }
-    else if(e.key==="_" || e.key==="Backspace"){ stepBack(); } // Backspace로도 가능
-    else if(e.key==="r"||e.key==="R"||e.key==="g"||e.key==="G"){ stopMove(); stage=1; generate(); }
-  });
-  window.addEventListener("keyup",()=> stopMove());
-
-  // Hint from current position (try W,N,S headings)
-  ui.btnHint.addEventListener("click", ()=>{
-    const dirs=[3,0,2];
-    let p=null;
-    for(const d of dirs){
-      p = leftHandPathNoEastStrict(maze, player.x, player.y, goal.x, goal.y, d);
-      if(p) break;
+      let attempts=0;
+      while(rooms.length<roomCount && attempts++<roomCount*20){
+        const maxW = Math.max(3, Math.floor(W/8)) | 1;
+        const maxH = Math.max(3, Math.floor(H/8)) | 1;
+        const rw = (r.int(3, maxW)) | 1;
+        const rh = (r.int(3, maxH)) | 1;
+        const rx = (r.int(3, W-4-rw)) | 1;
+        const ry = (r.int(3, H-4-rh)) | 1;
+        const cand = {x1:rx, y1:ry, x2:rx+rw-1, y2:ry+rh-1};
+        if(!inb(cand.x1,cand.y1) || !inb(cand.x2,cand.y2)) continue;
+        let ok=true; for(const rm of rooms){ if(rectsOverlap(cand, rm)){ ok=false; break; } }
+        if(!ok) continue;
+        carveRect(cand.x1,cand.y1,cand.x2,cand.y2);
+        rooms.push(cand);
+        const sides=[
+          {x:()=> r.int(cand.x1+1,cand.x2-1)|1, y:()=> cand.y1-1, dx:0, dy:-1},
+          {x:()=> r.int(cand.x1+1,cand.x2-1)|1, y:()=> cand.y2+1, dx:0, dy:1},
+          {x:()=> cand.x1-1, y:()=> r.int(cand.y1+1,cand.y2-1)|1, dx:-1, dy:0},
+          {x:()=> cand.x2+1, y:()=> r.int(cand.y1+1,cand.y2-1)|1, dx:1, dy:0},
+        ];
+        const used = new Set(); const dCount=Math.min(doorsPerRoom, sides.length);
+        for(let d=0; d<dCount; d++){
+          let side=null;
+          for(let t=0;t<10;t++){ const candSide=sides[r.int(0,sides.length-1)]; const key=JSON.stringify([candSide.dx,candSide.dy]); if(!used.has(key)){ used.add(key); side=candSide; break; } }
+          if(!side) break;
+          let px=side.x(), py=side.y(); if(!inb(px,py)) continue;
+          while(inb(px,py) && g[py][px]===WALL){ g[py][px]=PATH; px+=side.dx; py+=side.dy; }
+        }
+      }
     }
-    if(p){
-      solutionPath=p;
-      showHint=true; draw();
-      clearTimeout(hintTimer);
-      hintTimer=setTimeout(()=>{ showHint=false; draw(); }, 1500);
-    }else{
-      toast.textContent="현재 위치 기준 좌회전(동쪽 금지) 경로가 없습니다. 한 칸 이동해보세요.";
-      toast.style.display="block"; setTimeout(()=> toast.style.display="none", 1200);
-    }
-  });
-  ui.btnBack.addEventListener("click", stepBack);
-  ui.btnNew.addEventListener("click", ()=>{ stopMove(); stage=1; generate(); });
 
-  // boot
-  generate();
-})();
+    // 왼손 법칙(동쪽 금지)
+    function leftHandPathNoEastStrict(g, sx, sy, tx, ty, startDir){
+      const H=g.length, W=g[0].length;
+      const DX=[0,1,0,-1], DY=[-1,0,1,0]; // N,E,S,W
+      let x=sx, y=sy, dir=startDir; // 0N 1E 2S 3W
+      const max=W*H*40, path=[[x,y]];
+      const seen=new Set(); const key=(x,y,d)=>`${x},${y},${d}`;
+      for(let step=0; step<max; step++){
+        if(x===tx && y===ty) return path;
+        const k=key(x,y,dir); if(seen.has(k)) return null; seen.add(k);
+        const order=[(dir+3)&3, dir, (dir+1)&3, (dir+2)&3]; // L F R B
+        let moved=false;
+        for(const nd of order){
+          if(nd===1) continue; // forbid EAST
+          const nx=x+DX[nd], ny=y+DY[nd];
+          if(nx<0||ny<0||nx>=W||ny>=H) continue;
+          if(g[ny][nx]!==PATH) continue;
+          x=nx; y=ny; dir=nd; path.push([x,y]); moved=true; break;
+        }
+        if(!moved) return null;
+      }
+      return null;
+    }
+
+    function buildMazeEastToWest(n, zigzag, loopDen, rooms, doors, seed){
+      const r=RNG(seed);
+      while(true){
+        const g=Array.from({length:n},()=>Array(n).fill(WALL));
+        const sx0=n-2, sy0=n-2, tx0=1, ty0=1;
+        let tries=0;
+        while(tries++<60){
+          for(let y=0;y<n;y++) for(let x=0;x<n;x++) g[y][x]=WALL;
+          if(carveMainPathNoEast(g, sx0, sy0, tx0, ty0, r, zigzag)) break;
+        }
+        fillWithDFS(g, r);
+        carveRoomsNonOverlap(g, r, rooms, doors);
+        punchLoops(g, r, loopDen);
+
+        const east=[], west=[];
+        for(let y=1;y<n-1;y++){ if(g[y][n-2]===PATH) east.push([n-2,y]); if(g[y][1]===PATH) west.push([1,y]); }
+        if(!east.length || !west.length) continue;
+        for(let t=0;t<150;t++){
+          const A=east[Math.floor(Math.random()*east.length)];
+          const B=west[Math.floor(Math.random()*west.length)];
+          const dirs=[3,0,2]; // W,N,S
+          for(const d of dirs){
+            const p = leftHandPathNoEastStrict(g, A[0],A[1], B[0],B[1], d);
+            if(p) return {grid:g, start:{x:A[0],y:A[1]}, goal:{x:B[0],y:B[1]}, solution:p};
+          }
+        }
+      }
+    }
+
+    // === Game state
+    let maze, player, goal, solutionPath, showHint=false, hintTimer=null;
+    let moving=false, timer=null;
+    const backStack=[];
+
+    function V(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+    // 화면 폭에 맞게 CELL 재계산 + 캔버스 DPR 스케일링
+    function resizeCanvasForDisplay(n){
+      const wrap = document.getElementById('stageWrap');
+      // 실제 렌더 폭 측정 (스크롤/패딩 이슈 최소화)
+      const rect = wrap.getBoundingClientRect();
+      const avail = Math.max(200, Math.floor(rect.width - 20)); // 최소폭 가드
+
+      // CELL은 가용 폭 기준으로 항상 재계산 (작아질 때도 감소 보장)
+      CELL = Math.max(8, Math.floor(avail / n));
+
+      // CSS 크기와 내부 비트맵 크기를 매번 강제 업데이트
+      const cssSide = CELL * n;
+      canvas.style.width = cssSide + 'px';
+      canvas.style.height = cssSide + 'px';
+
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const internalSide = Math.max(1, Math.floor(cssSide * dpr));
+      canvas.width = internalSide;
+      canvas.height = internalSide;
+
+      // 변환행렬 초기화 후 DPR 스케일 적용 (누적 스케일 방지)
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.scale(dpr, dpr);
+    }
+
+    function generate(){
+      const base = parseInt(ui.size.value,10)||41;
+      const n = Math.max(31, base + (stage-1)*2);
+      const zigzag = parseInt(ui.zigzag.value,10)||70;
+      const loopDen = parseInt(ui.loops.value,10)||12;
+      const rooms = parseInt(ui.rooms.value,10)||8;
+      const doors = parseInt(ui.doors.value,10)||3;
+      const seedVal = ui.seed.value==="" ? undefined : Number(ui.seed.value);
+
+      const res = buildMazeEastToWest(n, zigzag, loopDen, rooms, doors, seedVal);
+      maze = res.grid; player = {...res.start}; goal = res.goal; solutionPath = res.solution;
+      resizeCanvasForDisplay(n);
+      ui.stageNo.textContent = String(stage);
+      showHint=false; clearTimeout(hintTimer);
+      backStack.length = 0; // reset history
+      draw();
+    }
+
+    function draw(){
+      const H=maze.length, W=maze[0].length;
+      ctx.fillStyle = V("--floor");
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = V("--wall");
+      for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+        if(maze[y][x]===WALL) ctx.fillRect(x*CELL, y*CELL, CELL, CELL);
+      }
+      if(showHint && solutionPath){
+        ctx.fillStyle = V("--hint");
+        for(const [x,y] of solutionPath){
+          ctx.fillRect(x*CELL+CELL*0.3, y*CELL+CELL*0.3, CELL*0.4, CELL*0.4);
+        }
+      }
+      // goal & player (이모지 크기도 CELL 기반)
+      ctx.font = `${Math.floor(CELL*0.85)}px Arial`; ctx.textAlign="center"; ctx.textBaseline="middle";
+      ctx.fillText("🥅", goal.x*CELL+CELL/2, goal.y*CELL+CELL/2);
+      ctx.fillText("🚗", player.x*CELL+CELL/2, player.y*CELL+CELL/2);
+    }
+
+    // Movement helpers
+    function tryStep(dx,dy){
+      if(dx===1) return false; // block east
+      const nx=player.x+dx, ny=player.y+dy;
+      if(maze[ny]?.[nx]===0){
+        backStack.push({x:player.x, y:player.y});
+        player.x=nx; player.y=ny; draw();
+        if(player.x===goal.x && player.y===goal.y){
+          toast.textContent="성공! 다음 맵으로 이동합니다"; toast.style.display="block";
+          setTimeout(()=>{ toast.style.display="none"; stage++; generate(); }, 800);
+        }
+        return true;
+      }
+      return false;
+    }
+    function startMove(dx,dy){
+      if(moving) return;
+      moving=true;
+      if(!tryStep(dx,dy)){ stopMove(); return; }
+      timer=setInterval(()=>{ if(!tryStep(dx,dy)) stopMove(); }, 110);
+    }
+    function stopMove(){ moving=false; if(timer){ clearInterval(timer); timer=null; } }
+
+    function stepBack(){
+      if(backStack.length===0){ return; }
+      stopMove();
+      const prev = backStack.pop();
+      player.x = prev.x; player.y = prev.y;
+      draw();
+    }
+
+    window.addEventListener("keydown",(e)=>{
+      if(moving) return;
+      if(e.key==="w"||e.key==="ArrowUp") startMove(0,-1);
+      else if(e.key==="a"||e.key==="ArrowLeft") startMove(-1,0);
+      else if(e.key==="s"||e.key==="ArrowDown") startMove(0,1);
+      else if(e.key==="d"||e.key==="ArrowRight") { /* disabled */ }
+      else if(e.key==="_" || e.key==="Backspace"){ stepBack(); }
+      else if(e.key==="r"||e.key==="R"||e.key==="g"||e.key==="G"){ stopMove(); stage=1; generate(); }
+    });
+    window.addEventListener("keyup",()=> stopMove());
+
+    // Hint from current position
+    ui.btnHint.addEventListener("click", ()=>{
+      const dirs=[3,0,2];
+      let p=null;
+      for(const d of dirs){
+        p = leftHandPathNoEastStrict(maze, player.x, player.y, goal.x, goal.y, d);
+        if(p) break;
+      }
+      if(p){
+        solutionPath=p;
+        showHint=true; draw();
+        clearTimeout(hintTimer);
+        hintTimer=setTimeout(()=>{ showHint=false; draw(); }, 1500);
+      }else{
+        toast.textContent="현재 위치 기준 좌회전(동쪽 금지) 경로가 없습니다. 한 칸 이동해보세요.";
+        toast.style.display="block"; setTimeout(()=> toast.style.display="none", 1200);
+      }
+    });
+    ui.btnBack.addEventListener("click", stepBack);
+    ui.btnNew.addEventListener("click", ()=>{ stopMove(); stage=1; generate(); });
+
+    // 화면 리사이즈 대응: CELL 재계산 후 즉시 리드로우
+    // 리사이즈 관찰 + 윈도우 리사이즈 모두 대응
+    const onResize = () => {
+      if(!maze) return;
+      const n = maze.length;
+      resizeCanvasForDisplay(n);
+      draw();
+    };
+
+    const ro = new ResizeObserver(onResize);
+    ro.observe(document.getElementById('stageWrap'));
+    ro.observe(document.body);
+    window.addEventListener('resize', () => {
+      // 간단 디바운스: 동일 프레임 내 다중 이벤트 병합
+      cancelAnimationFrame(onResize._rafId);
+      onResize._rafId = requestAnimationFrame(onResize);
+    });
+
+    // boot
+    generate();
+  })();
 </script>
 </body>
 </html>
